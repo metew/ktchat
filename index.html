@@ -1,0 +1,167 @@
+<html>
+<head>
+    <title>ktChat</title>
+
+    <link href="/Content/bootstrap.min.css" rel="stylesheet" />
+    <link href="/Content/jquery.mobile-1.4.2.css" rel="stylesheet" />
+    <link href="/Content/ktChat.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="container" style="width: 100%; border: 2px solid #999999; background-color: #999999; ">
+        <div class="row">
+            <div>
+                <div data-role="navbar">
+                    <ul id="navbar_chattabs">
+                        <li><a id="tabCluster" href="#" class="ui-btn-active">Cluster<span id="cntCluster" class="cntMessage">0</span></a></li>
+                        <li><a id="tabPrivate" href="#" style="margin-right:0px;">Private<span id="cntPrivate" class="cntMessage">0</span></a></li>
+                        <!--<li><a id="tabAuction" href="#" style="margin-right:0px;">Auction<span id="cntAuction" class="cntMessage">0</span></a></li>-->
+                    </ul>
+                </div>
+                <div id="div_chatblock" class="row" style="height:220px;overflow-y: scroll; background-color: #ffffff; font-size:12px;">
+                    <div id="div_chatblocks" style="padding: 10px 20px 5px 20px;">
+                        <div class="widgetchat" id="chatCluster"></div>
+                        <div class="widgetchat" id="chatPrivate"></div>
+                        <!--<div class="widgetchat" id="chatAuction"></div>-->
+                    </div>
+                </div>
+                <div class="row">
+                    <form id="send-message">
+                        <div class="col-xs-8 col-sm-10 col-md-10 col-lg-10" style="text-align: center;"><input style="height: 35px; width: 100%; " type="text" id="message" /></div>
+                        <div class="col-xs-4 col-sm-2 col-md-2 col-lg-2"><button style="height:35px; padding:1px; width:100%;" type="submit" id="sendmessage" value="Send">Send</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/Scripts/jquery-2.1.1.min.js"></script>
+    <script src="/Scripts/jquery.mobile-1.4.2.min.js"></script>
+    <script src="/Scripts/bootstrap.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <!--<script src="https://cdn.socket.io/socket.io-1.0.0.js"></script>-->
+
+    <script>
+        function jsTimeStamp() {
+            var dDate = new Date();
+            var dStamp = ('0' + dDate.getHours()).slice(-2) + ":" + ('0' + dDate.getMinutes()).slice(-2) + ":" + ('0' + dDate.getSeconds()).slice(-2);
+            return '(' + dStamp + ')';
+        }
+
+        //jQuery(function($){
+        //manage shared sockets
+        //if (io.sockets.connected[mySocket] != undefined) {
+        //    if (io.sockets.connected[mySocket].connected) //or disconected property
+        //    { socket = localStorage.getItem('socket1', socket); }
+        //    else { socket = io.connect('http://chat2.karmatom.com:3001'); localStorage.setItem('socket1', socket); }
+        //}
+        //else { socket = io.connect('http://chat2.karmatom.com:3001'); localStorage.getItem('socket1', socket); }
+
+        socket = io.connect('http://chat2.karmatom.com:3001');
+        mySocket = '';
+        var $messageForm = $('#send-message');
+        var $messageBox = $('#message');
+
+        var $tabCluster = $('#tabCluster');
+        var $tabPrivate = $('#tabPrivate');
+        var $tabAuction = $('#tabAuction');
+
+        var $chatCluster = $('#chatCluster');
+        var $chatPrivate = $('#chatPrivate');
+        var $chatAuction = $('#chatAuction');
+
+        var $cntCluster = $('#cntCluster');
+        var $cntPrivate = $('#cntPrivate');
+        var $cntAuction = $('#cntAuction');
+        var $scroller = document.getElementById('div_chatblock');
+        var $pm = $('.pm');
+
+        function tabCleaner() { $('#navbar_chattabs li').children().removeClass('ui-btn-active'); $('#div_chatblocks').children().hide(); }
+
+        function tabClusterClick() { tabCleaner(); $tabCluster.addClass('ui-btn-active').removeClass('blink'); $chatCluster.show(); $cntCluster.hide().html(0); }
+        function tabPrivateClick() { tabCleaner(); $tabPrivate.addClass('ui-btn-active').removeClass('blink'); $chatPrivate.show(); $cntPrivate.hide().html(0); }
+        function tabAuctionClick() { tabCleaner(); $tabAuction.addClass('ui-btn-active').removeClass('blink'); $chatAuction.show(); $cntAuction.hide().html(0); }
+
+        $cntCluster.hide();
+        $cntPrivate.hide();
+        $cntAuction.hide();
+        $tabCluster.off('click').on('click', function () { tabClusterClick(); });
+        $tabPrivate.off('click').on('click', function () { tabPrivateClick(); });
+        $tabAuction.off('click').on('click', function () { tabAuctionClick(); });
+
+        function jsMessageRoute(msg) {
+            //if (auctionLive.sAuctionId == undefined) { auctionLive.sAuctionId = 0; }
+            cmd = msg.substring(0, 1);
+            rqst = msg.split(' ')[0].substring(1);
+            if (cmd == '@') { socket.emit('sendPrivate', rqst, msg.substring(rqst.length + 1)); tabPrivateClick(); $messageBox.val('@' + rqst + ' '); }
+            else if (cmd == '#') { socket.emit('sendGroup', rqst, msg.substring(rqst.length + 1)); tabClusterClick(); $messageBox.val('#' + rqst + ' '); }
+            //else if ($tabAuction.hasClass('ui-btn-active') && auctionLive.sAuctionId != 0) { socket.emit('sendAuction', auctionLive.sAuctionId, msg); $messageBox.val(' '); }
+            else if (cmd == '!') { socket.emit('serverInfo', rqst); tabClusterClick(); $messageBox.val(''); }
+            else if (cmd == '+') { socket.emit('joinGroup', rqst); tabClusterClick(); $messageBox.val(''); }
+            else if (cmd == '-') { socket.emit('leaveGroup', rqst); tabClusterClick(); $messageBox.val(''); }
+            else { socket.emit('send', msg); tabClusterClick(); $messageBox.val(''); }
+        }
+
+        $messageForm.submit(function (e) {
+            e.preventDefault();
+            jsMessageRoute($messageBox.val())
+        });
+
+        function jsMakeAnchor(data) {
+            var myhtml = ' <a href="#" class="pm" data-id="' + data + '">' + data.substring(0, 6) + '</a>';
+            return myhtml;
+        }
+
+        //socket.id.substring(0, 4) + ' {jstTimeStamp}: ' + data
+        socket.on('getSocket', function (data) { mySocket = data.socketid; });
+        socket.on('hubJoinMessage', function (data) { $chatCluster.append('<div class="bubble bubble--alt">' + jsTimeStamp() + ': ' + data.substring(0, 6) + " has joined</div>"); });
+        socket.on('hubLeaveMessage', function (data) { $chatCluster.append('<div class="bubble bubble--alt">' + jsTimeStamp() + ': ' + data.substring(0, 6) + " has left</div>"); });
+        socket.on('broadcastMessage', function (data) {
+            var myhtml
+            if (mySocket == data.socketId)
+            { myhtml = '<div class="bubble">' + data.data + "</div>"; }
+            else { myhtml = '<div class="bubble bubble--alt"><a href="#" class="pm" data-id="' + data.socketId.substring(0, 6) + '">@' + data.socketId.substring(0, 6) + '</a>: ' + data.data + "</div>"; }
+
+            $chatCluster.append(myhtml);
+            $chatCluster.off('click').on('click', 'a[class="pm"]', function () { $messageBox.val('@' + this.getAttribute("data-id") + ' '); $('#message').focus(); });
+            if (!$tabCluster.hasClass('ui-btn-active')) { $tabCluster.addClass('blink'); var cnt = parseInt($cntCluster.html()) + 1; $cntCluster.html(cnt).show(); }
+            $scroller.scrollTop = $scroller.scrollHeight;
+        });
+        socket.on('broadcastGroup', function (data) {
+            var myhtml
+            if (mySocket == data.socketId)
+            { myhtml = '<div class="bubble">' + data.data + "</div>"; }
+            else { myhtml = '<div class="bubble bubble--alt"><a href="#" class="pm" data-group="' + data.group + '">#' + data.group + '</a>: ' + data.data + "</div>"; }
+
+            $chatCluster.append(myhtml);
+            $chatCluster.off('click').on('click', 'a[class="pm"]', function () { $messageBox.val('#' + this.getAttribute("data-group") + ' '); $('#message').focus(); });
+            if (!$tabCluster.hasClass('ui-btn-active')) { $tabCluster.addClass('blink'); var cnt = parseInt($cntCluster.html()) + 1; $cntCluster.html(cnt).show(); }
+            $scroller.scrollTop = $scroller.scrollHeight;
+        });
+        socket.on('broadcastAuction', function (data) {
+            var myhtml
+            if (mySocket == data.socketId)
+            { myhtml = '<div class="bubble">' + data.data + "</div>"; }
+            else { myhtml = '<div class="bubble bubble--alt"><a href="#" class="pm" data-id="' + data.socketId.substring(0, 6) + '">@' + data.socketId.substring(0, 6) + '</a>: ' + data.data + "</div>"; }
+
+            $chatAuction.append(myhtml);
+            $chatAuction.off('click').on('click', 'a[class="pm"]', function () { $messageBox.val('@' + this.getAttribute("data-id") + ' '); $('#message').focus(); });
+            if (!$tabAuction.hasClass('ui-btn-active')) { $tabAuction.addClass('blink'); var cnt = parseInt($cntAuction.html()) + 1; $cntAuction.html(cnt).show(); }
+            $scroller.scrollTop = $scroller.scrollHeight;
+        });
+        socket.on('broadcastPrivate', function (data) {
+            var myhtml
+            if (mySocket == data.socketId)
+            { myhtml = '<div class="bubble">' + data.data + "</div>"; }
+            else { myhtml = '<div class="bubble bubble--alt"><a href="#" class="pm" data-id="' + data.socketId.substring(0, 6) + '">' + data.socketId.substring(0, 6) + '</a>: ' + data.data + "</div>"; }
+
+            $chatPrivate.append(myhtml);
+            $chatPrivate.off('click').on('click', 'a[class="pm"]', function () { $messageBox.val('@' + this.getAttribute("data-id") + ' '); $('#message').focus(); });
+            if (!$tabPrivate.hasClass('ui-btn-active')) { $tabPrivate.addClass('blink'); var cnt = parseInt($cntPrivate.html()) + 1; $cntPrivate.html(cnt).show(); }
+            $scroller.scrollTop = $scroller.scrollHeight;
+        });
+        //});
+
+        $('#message').focus();
+    </script>
+</body>
+</html>
